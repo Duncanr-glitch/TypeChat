@@ -66,7 +66,7 @@ export function createLanguageModel(env: Record<string, string | undefined>, cus
     if (env.AZURE_OPENAI_API_KEY) {
         const apiKey = env.AZURE_OPENAI_API_KEY ?? missingEnvironmentVariable("AZURE_OPENAI_API_KEY");
         const endPoint = env.AZURE_OPENAI_ENDPOINT ?? missingEnvironmentVariable("AZURE_OPENAI_ENDPOINT");
-        return createAzureOpenAILanguageModel(apiKey, endPoint, customParams);
+        return createAzureOpenAILanguageModel(apiKey, endPoint, customParams ?? {});
     }
     missingEnvironmentVariable("OPENAI_API_KEY or AZURE_OPENAI_API_KEY");
 }
@@ -110,7 +110,7 @@ export function createAzureOpenAILanguageModel(apiKey: string, endPoint: string,
 /**
  * Common implementation of language model encapsulation of an OpenAI REST API endpoint.
  */
-function createAxiosLanguageModel(url: string, config: d, defaultParams: Record<string, string>, customParams?: object) {
+function createAxiosLanguageModel(url: string, config: object, defaultParams: Record<string, string>, customParams?: object) {
     const client = axios.create(config);
     const model: TypeChatLanguageModel = {
         complete
