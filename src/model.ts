@@ -84,7 +84,7 @@ function setHeaders(apiKey: string, org: string, params: object): {headers: {}} 
             "OpenAI-Organization": org
          }
     }
-    if (!("assistant_id" in params)) {
+    if ("assistant_id" in params) {
         headers["headers"]["OpenAI-Beta"] = "assistants=v1"
     }
     return headers
@@ -99,7 +99,7 @@ function setHeaders(apiKey: string, org: string, params: object): {headers: {}} 
  * @returns An instance of `TypeChatLanguageModel`.
  */
 export function createOpenAILanguageModel(apiKey: string, model: string, endPoint = "https://api.openai.com/v1/chat/completions", org = "", customParams = {}): TypeChatLanguageModel {
-    return createAxiosLanguageModel(endPoint, setHeaders(apiKey, org, customParams), { model, ...customParams });
+    return createAxiosLanguageModel(endPoint, setHeaders(apiKey, org, customParams), { model }, customParams);
 }
 
 /**
@@ -111,13 +111,13 @@ export function createOpenAILanguageModel(apiKey: string, model: string, endPoin
  * @returns An instance of `TypeChatLanguageModel`.
  */
 export function createAzureOpenAILanguageModel(apiKey: string, endPoint: string, customParams: object): TypeChatLanguageModel {
-    return createAxiosLanguageModel(endPoint, setHeaders(apiKey, "", customParams), {...customParams});
+    return createAxiosLanguageModel(endPoint, setHeaders(apiKey, "", customParams), {}, customParams);
 }
 
 /**
  * Common implementation of language model encapsulation of an OpenAI REST API endpoint.
  */
-function createAxiosLanguageModel(url: string, config: object, defaultParams: Record<string, string>, customParams?: object) {
+function createAxiosLanguageModel(url: string, config: object, defaultParams: Record<string, string>, customParams: Record<string, object>) {
     const client = axios.create(config);
     const model: TypeChatLanguageModel = {
         complete
@@ -132,15 +132,27 @@ function createAxiosLanguageModel(url: string, config: object, defaultParams: Re
         while (true) {
             let params
             if ("assistant_id" in defaultParams) {
-                params = defaultParams
+                if ("thread" in customParams) {
+                    if ("messages" in customParams.thread) {
+                        if (typeof customParams.thread.messages === "object") {
+                            customParams.thread.messages = {
+                                ...customParams.thread.messages,
+                                content: prompt
+                            }
+                        }
+                    }
+                }
+                params = {...defaultParams, ...customParams}
             } else {
                 params = {
                     ...defaultParams,
+                    ...customParams,
                     messages,
                     temperature: 0,
                     n: 1
                 }
             };
+            console.log(params)
             const result = await client.post(url, params, { validateStatus: status => true });
             if (result.status === 200) {
                 if ("assistant_id" in params) {
