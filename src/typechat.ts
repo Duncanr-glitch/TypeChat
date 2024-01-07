@@ -102,6 +102,7 @@ export function createJsonTranslator<T extends object>(model: TypeChatLanguageMo
     }
 
     async function translate(request: string, promptPreamble?: string | PromptSection[]) {
+        console.log("Beginning of Translate Function")
         const preamble: PromptSection[] = typeof promptPreamble === "string" ? [{ role: "user", content: promptPreamble }] : promptPreamble ?? [];
         let prompt: PromptSection[] = [...preamble, { role: "user", content: typeChat.createRequestPrompt(request) }];
         let attemptRepair = typeChat.attemptRepair;

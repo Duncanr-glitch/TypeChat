@@ -119,9 +119,11 @@ export function createAzureOpenAILanguageModel(apiKey: string, endPoint: string,
  */
 function createAxiosLanguageModel(url: string, config: object, defaultParams: Record<string, string>, customParams?: object) {
     const client = axios.create(config);
+    console.log("Client: ", client)
     const model: TypeChatLanguageModel = {
         complete
     };
+    console.log("Model: ", model)
     return model;
 
     async function complete(prompt: string | PromptSection[]) {
