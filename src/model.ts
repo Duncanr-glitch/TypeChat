@@ -119,11 +119,9 @@ export function createAzureOpenAILanguageModel(apiKey: string, endPoint: string,
  */
 function createAxiosLanguageModel(url: string, config: object, defaultParams: Record<string, string>, customParams?: object) {
     const client = axios.create(config);
-    console.log("Client: ", client)
     const model: TypeChatLanguageModel = {
         complete
     };
-    console.log("Model: ", model)
     return model;
 
     async function complete(prompt: string | PromptSection[]) {
@@ -145,6 +143,23 @@ function createAxiosLanguageModel(url: string, config: object, defaultParams: Re
             };
             const result = await client.post(url, params, { validateStatus: status => true });
             if (result.status === 200) {
+                if ("assistant_id" in params) {
+                    let runState = false
+                    let runResults = null
+                    let runStateRetryCounter = 0
+                    while (!runState && runStateRetryCounter < 10) {                        
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        runResults = await client.get(`https://api.openai.com/v1/threads/${result.data.thread_id}/runs/${result.data.id}`)
+                        runState = runResults.data.completed_at
+                        runStateRetryCounter += 1
+                }
+                    if (runState) {
+                        const messages = await client.get(`https://api.openai.com/v1/threads/${result.data.thread_id}/messages`)
+                        return success(messages.data.data[0].content[0].text?.value ?? "");
+                    } else {
+                        return error("Query failed to complete.")
+                    }
+                }
                 return success(result.data.choices[0].message?.content ?? "");
             }
             if (!isTransientHttpError(result.status) || retryCount >= retryMaxAttempts) {
