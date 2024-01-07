@@ -40,6 +40,12 @@ export interface TypeChatLanguageModel {
     complete(prompt: string | PromptSection[]): Promise<Result<string>>;
 }
 
+interface HeadersInterface {
+    Authorization: string
+    "OpenAI-Organization": string
+    "OpenAI-Beta"?: "assistants=v1"
+}
+
 /**
  * Creates a language model encapsulation of an OpenAI or Azure OpenAI REST API endpoint
  * chosen by environment variables.
@@ -71,6 +77,19 @@ export function createLanguageModel(env: Record<string, string | undefined>, cus
     missingEnvironmentVariable("OPENAI_API_KEY or AZURE_OPENAI_API_KEY");
 }
 
+function setHeaders(apiKey: string, org: string, params: object): {headers: {}} {
+    const headers: {headers: HeadersInterface} = {
+        headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "OpenAI-Organization": org
+         }
+    }
+    if (!("assistant_id" in params)) {
+        headers["headers"]["OpenAI-Beta"] = "assistants=v1"
+    }
+    return headers
+}
+
 /**
  * Creates a language model encapsulation of an OpenAI REST API endpoint.
  * @param apiKey The OpenAI API key.
@@ -80,12 +99,7 @@ export function createLanguageModel(env: Record<string, string | undefined>, cus
  * @returns An instance of `TypeChatLanguageModel`.
  */
 export function createOpenAILanguageModel(apiKey: string, model: string, endPoint = "https://api.openai.com/v1/chat/completions", org = "", customParams = {}): TypeChatLanguageModel {
-    return createAxiosLanguageModel(endPoint, {
-        headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "OpenAI-Organization": org
-         }
-    }, { model, ...customParams });
+    return createAxiosLanguageModel(endPoint, setHeaders(apiKey, org, customParams), { model, ...customParams });
 }
 
 /**
@@ -97,14 +111,7 @@ export function createOpenAILanguageModel(apiKey: string, model: string, endPoin
  * @returns An instance of `TypeChatLanguageModel`.
  */
 export function createAzureOpenAILanguageModel(apiKey: string, endPoint: string, customParams: object): TypeChatLanguageModel {
-    return createAxiosLanguageModel(endPoint, {
-        headers: {
-            // Needed when using managed identity
-            Authorization: `Bearer ${apiKey}`,
-            // Needed when using regular API key
-            "api-key": apiKey
-        }
-    }, {...customParams});
+    return createAxiosLanguageModel(endPoint, setHeaders(apiKey, "", customParams), {...customParams});
 }
 
 /**
@@ -123,11 +130,16 @@ function createAxiosLanguageModel(url: string, config: object, defaultParams: Re
         const retryPauseMs = model.retryPauseMs ?? 1000;
         const messages = typeof prompt === "string" ? [{ role: "user", content: prompt }] : prompt;
         while (true) {
-            const params = {
-                ...defaultParams,
-                messages,
-                temperature: 0,
-                n: 1
+            let params
+            if ("assistant_id" in defaultParams) {
+                params = defaultParams
+            } else {
+                params = {
+                    ...defaultParams,
+                    messages,
+                    temperature: 0,
+                    n: 1
+                }
             };
             const result = await client.post(url, params, { validateStatus: status => true });
             if (result.status === 200) {
